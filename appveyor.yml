@@ -3,8 +3,29 @@ image: Visual Studio 2022
 install:
   # Install .NET 10 SDK
   - ps: |
-      Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -UseBasicParsing -OutFile "$env:temp\dotnet-install.ps1"
-      & $env:temp\dotnet-install.ps1 -Architecture x64 -Version '10.0.105' -InstallDir "$env:ProgramFiles\dotnet"
+      $scriptUrl = 'https://dot.net/v1/dotnet-install.ps1'
+      $scriptPath = "$env:temp\dotnet-install.ps1"
+      # Pin the expected SHA256 hash of the dotnet-install.ps1 script to prevent supply-chain attacks
+      # To obtain the current hash: download the script and run: Get-FileHash -Path dotnet-install.ps1 -Algorithm SHA256
+      # This hash should be updated when intentionally upgrading to a newer version of the script
+      # IMPORTANT: Replace this placeholder hash with the actual hash before first use
+      $expectedHash = 'REPLACE_WITH_ACTUAL_SHA256_HASH_OF_DOTNET_INSTALL_SCRIPT'
+      
+      Write-Host "Downloading dotnet-install.ps1 from $scriptUrl"
+      Invoke-WebRequest -Uri $scriptUrl -UseBasicParsing -OutFile $scriptPath
+      
+      # Verify the downloaded script's hash
+      $actualHash = (Get-FileHash -Path $scriptPath -Algorithm SHA256).Hash
+      Write-Host "Expected hash: $expectedHash"
+      Write-Host "Actual hash:   $actualHash"
+      
+      if ($actualHash -ne $expectedHash) {
+          Write-Error "SECURITY: dotnet-install.ps1 hash mismatch! Expected $expectedHash but got $actualHash. The script may have been tampered with or updated. If this is an intentional update, verify the new script content and update the hash in appveyor.yml."
+          exit 1
+      }
+      
+      Write-Host "Hash verification passed. Executing dotnet-install.ps1"
+      & $scriptPath -Architecture x64 -Version '10.0.105' -InstallDir "$env:ProgramFiles\dotnet"
 
 version: '{build}'
 configuration: Release
